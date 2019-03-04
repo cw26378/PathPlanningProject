@@ -5,12 +5,12 @@ Self-Driving Car Engineer Nanodegree Program
 You can download the Term3 Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases/tag/T3_v1.2).
 
 ### Goals
-In this project your goal is to safely navigate around a virtual highway with other traffic that is driving +-10 MPH of the 50 MPH speed limit. You will be provided the car's localization and sensor fusion data, there is also a sparse map list of waypoints around the highway. The car should try to go as close as possible to the 50 MPH speed limit, which means passing slower traffic when possible, note that other cars will try to change lanes too. The car should avoid hitting other cars at all cost as well as driving inside of the marked road lanes at all times, unless going from one lane to another. The car should be able to make one complete loop around the 6946m highway. Since the car is trying to go 50 MPH, it should take a little over 5 minutes to complete 1 loop. Also the car should not experience total acceleration over 10 m/s^2 and jerk that is greater than 10 m/s^3.
+In this project, the goal is to safely navigate around a virtual highway with other traffic that is driving +-10 MPH of the 50 MPH speed limit.  The car's localization and sensor fusion data will be provided, and  there is also a sparse map list of waypoints around the highway. The car should try to go as close as possible to the 50 MPH speed limit, which means passing slower traffic when possible, note that other cars will try to change lanes too. The car should avoid hitting other cars at all cost as well as driving inside of the marked road lanes at all times, unless going from one lane to another. The car should be able to make one complete loop around the 6946m highway. Since the car is trying to go 50 MPH, it should take a little over 5 minutes to complete 1 loop. Also the car should not experience total acceleration over 10 m/s^2 and jerk that is greater than 10 m/s^3.
 
 #### The map of the highway is in data/highway_map.txt
 Each waypoint in the list contains  [x,y,s,dx,dy] values. x and y are the waypoint's map coordinate position, the s value is the distance along the road to get to that waypoint in meters, the dx and dy values define the unit normal vector pointing outward of the highway loop.
 
-The highway's waypoints loop around so the frenet s value, distance along the road, goes from 0 to 6945.554.
+The highway's waypoints loop around so the frenet s value, distance along the road, goes from 0 to 6945.554. Therefore there will be coordinate transformation between frenet and cartesian system. And there will be transformation between global and local coordinates as well.
 
 ## Basic Build Instructions
 
@@ -55,13 +55,20 @@ the path has processed since last time.
 ["sensor_fusion"] A 2d vector of cars and then that car's [car's unique ID, car's x position in map coordinates, car's y position in map coordinates, car's x velocity in m/s, car's y velocity in m/s, car's s position in frenet coordinates, car's d position in frenet coordinates. 
 
 ## Description of the approach to path generation
-The majority of the code modification is based on the instruction from the "project walkthrough video". The key elements of the framework towards generating the `next_x_vals` and `next_y_vals`  includes:
+The goal is to generate the `next_x_vals` and `next_y_vals` based on the input of sensor_fusion as well as waypoints from map. The majority of the code modification is based on the instruction from the "project walkthrough video". 
+
+The key elements of the framework towards generating the `next_x_vals` and `next_y_vals`  includes:
 1.  Obtain array of waypoint near ego car position from the combination of the most recent points (from `previous_path_x` and `previous_path_y`) and the expected next 3 way points based on current Frenet coordinate `car_s` and `lane` given the waypoints' map.  (Line 377 - Line 421)
+
 2.  The resulted list of point coordinates from step-1 above will be used to generate a spline fit (in local coordinates), and the spline will be used to calculate the newly generated XY points to the `next_x_vals` and `next_y_vals` based on the velocity and target "forseeable" future (`x_target` in the code), these new points will be added to the existing points from the last time stamp (stored in the `previous_path_x/`or`previous_path_y`). (Line 421-481)
+
 3. Once the car is able to drive with lane keeping and speed keeping capability, it is time to consider the traffic! Sensor fusion data is taken into account. First and foremost, condition judgement for "car in front is too close" is added and slow down with mild jerk and accelaration is implemented. For each detected car in sensor fusion will be analyzed depending on the lane number. (Line 272-293)
+
 4. In reality, the simple slow down when facing traffic is not performing. I noticed that the slow down action together with the requirement for reaching velocity of 49 mph will cause the ego car to oscillate below a slow car. This is practically dangerous and inefficient. So I decided to try a PID controll of speed to bring the car to the same speed as the car right in front, avoiding unnecessary speed change. And I personally believe this is a safer action. `"PID.h"` is included. The error is defined as the speed difference between car in front and ego car. (Line 350-367)
 In conclusion, the ego car is able to complete the whole lap running mostly at around the targeted speed without any incident, and is able to do lane change/passing when needed. 
 
+The result can be found here:
+https://www.youtube.com/watch?v=skv0EFonvYA&feature=youtu.be
 ## Details
 
 1. The car uses a perfect controller and will visit every (x,y) point it recieves in the list every .02 seconds. The units for the (x,y) points are in meters and the spacing of the points determines the speed of the car. The vector going from a point to the next point in the list dictates the angle of the car. Acceleration both in the tangential and normal directions is measured along with the jerk, the rate of change of total Acceleration. The (x,y) point paths that the planner recieves should not have a total acceleration that goes over 10 m/s^2, also the jerk should not go over 50 m/s^3. (NOTE: As this is BETA, these requirements might change. Also currently jerk is over a .02 second interval, it would probably be better to average total acceleration over 1 second and measure jerk from that.
